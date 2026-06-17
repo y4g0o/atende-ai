@@ -1,0 +1,29 @@
+# Preset de canal: Google Chat
+# Cole este bloco em areas/<sua-area>.yaml e preencha REPLACE_.
+#
+# Pré-requisito: MCP "claude.ai Google Chat" configurado no AI CLI.
+# User IDs: obtenha via list_messages > campo senderId.
+# Menção no template: {{ requester_address }} → <users/USER_ID>
+
+channel:
+  type: google_chat
+  tools:
+    read:   mcp__claude_ai_Google_Chat__list_messages
+    search: mcp__claude_ai_Google_Chat__search_messages
+    send:   mcp__claude_ai_Google_Chat__send_message
+  source_production: "spaces/REPLACE_PRODUCTION_SPACE_ID"
+  source_test:       "spaces/REPLACE_TEST_SPACE_ID"   # NUNCA usar produção para testes
+  address_format: mention   # <users/USER_ID> na resposta
+
+# tools_allowed deve incluir as tools acima + tools de operação da área:
+# tools_allowed:
+#   - mcp__claude_ai_Google_Chat__list_messages
+#   - mcp__claude_ai_Google_Chat__search_messages
+#   - mcp__claude_ai_Google_Chat__send_message
+#   - mcp__claude_ai_Google_Cloud_BigQuery__execute_sql_readonly
+#   - mcp__SEU_MCP_DE_OPERACAO__*
+
+# Formato de user_id em people[]:
+# people:
+#   - { name: "Fulano", user_id: "users/123456789012345678901", role: operator }
+#   # user_id = campo senderId retornado por list_messages

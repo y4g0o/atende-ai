@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atende-ai/schemas/atende.v1.json",
+  "title": "atende-AI area schema (v1)",
+  "type": "object",
+  "required": ["schema", "area", "channel", "tools_allowed", "types", "audit"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "atende.v1"
+    },
+    "area": {
+      "type": "object",
+      "required": ["name", "owner_team"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "kebab-case, vira nome do arquivo areas/<name>.yaml"
+        },
+        "description": {"type": "string"},
+        "owner_team": {"type": "string"},
+        "severity_default": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"],
+          "default": "medium"
+        },
+        "language_default": {
+          "type": "string",
+          "enum": ["pt-BR", "es"],
+          "default": "pt-BR"
+        }
+      }
+    },
+    "channel": {
+      "type": "object",
+      "required": ["type", "tools", "source_production"],
+      "additionalProperties": false,
+      "description": "Canal de comunicacao da area. Suporta google_chat, email, whatsapp.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["google_chat", "email", "whatsapp"],
+          "description": "Tipo de canal: google_chat (Google Chat MCP), email (Gmail MCP), whatsapp (MCP do provedor)"
+        },
+        "tools": {
+          "type": "object",
+          "required": ["read", "send"],
+          "additionalProperties": false,
+          "description": "Tools MCP que o engine usa para I/O neste canal. Devem estar em tools_allowed[].",
+          "properties": {
+            "read": {
+              "type": "string",
+              "pattern": "^mcp__[A-Za-z0-9_]+(__[A-Za-z0-9_*]+)*$",
+              "description": "Tool para ler/listar mensagens de um thread (ex: mcp__claude_ai_Google_Chat__list_messages)"
+            },
+            "search": {
+              "type": "string",
+              "pattern": "^mcp__[A-Za-z0-9_]+(__[A-Za-z0-9_*]+)*$",
+              "description": "Tool para buscar mensagens no canal por keyword (opcional)"
+            },
+            "send": {
+              "type": "string",
+              "pattern": "^mcp__[A-Za-z0-9_]+(__[A-Za-z0-9_*]+)*$",
+              "description": "Tool para enviar/rascunhar resposta. Email: create_draft (rascunho p/ operador revisar)"
+            }
+          }
+        },
+        "source_production": {
+          "type": "string",
+          "description": "Identificador do canal de producao. Formato por tipo: google_chat=spaces/XXX | email=label ou query Gmail | whatsapp=grupo ou numero"
+        },
+        "source_test": {
+          "type": "string",
+          "description": "Canal EXCLUSIVO para testes — NUNCA usar source_production em testes. Herda de globals.yaml se omitido."
+        },
+        "address_format": {
+          "type": "string",
+          "enum": ["mention", "email", "name"],
+          "default": "mention",
+          "description": "Como enderacar o solicitante na resposta: mention=<users/ID> (google_chat) | email=endereco de e-mail | name=nome em texto puro (whatsapp)"
+        }
+      }
+    },
+    "people": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "user_id"],
+        "properties": {
+          "name": {"type": "string"},
+          "user_id": {
+            "type": "string",
+            "description": "Identificador do usuario no canal. Formato por tipo: google_chat=users/DIGITS | email=endereco@dominio | whatsapp=+55XX..."
+          },
+          "email": {"type": "string", "format": "email"},
+          "role": {
+            "type": "string",
+            "enum": ["operator", "relay", "escalation"]
+          },
+          "authorizations": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "authorizations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule", "allowed_only"],
+        "properties": {
+          "rule": {"type": "string"},
+          "allowed_only": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "tools_allowed": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^mcp__[A-Za-z0-9_]+(__[A-Za-z0-9_*]+)*$",
+        "description": "Whitelist estrita de tools MCP. Inclui as tools de channel.tools (read/search/send) + tools de operacao. Wildcards permitidos apenas em namespace conhecido (sufixo *)."
+      }
+    },
+    "entity_lookups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "sql"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "description": {"type": "string"},
+          "sql": {"type": "string"},
+          "params": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": {"type": "string"},
+                "type": {"enum": ["string", "int", "bool"]},
+                "required": {"type": "boolean", "default": false}
+              }
+            }
+          }
+        }
+      }
+    },
+    "types": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "keywords", "operation", "response_template"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "integer", "minimum": 1},
+          "name": {"type": "string"},
+          "severity": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": ["safe", "sensitive", "destructive"],
+            "default": "safe",
+            "description": "destructive exige frase de confirmacao literal"
+          },
+          "keywords": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string"}
+          },
+          "requires": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["check"],
+              "properties": {
+                "check": {"type": "string"},
+                "sql": {"type": "string"},
+                "if_returns_rows": {"type": "string"},
+                "else_message": {"type": "string"}
+              }
+            }
+          },
+          "operation": {
+            "type": "object",
+            "required": ["tool", "payload"],
+            "properties": {
+              "tool": {"type": "string"},
+              "payload": {"type": "object"}
+            }
+          },
+          "escalation_to": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "Identificador do escalation target no canal (user_id do people[])"
+            }
+          },
+          "response_template": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {"type": "string"},
+            "description": "Por idioma: pt-BR, es. Suporta Jinja2. Use {{ requester_address }} para enderacar o solicitante (adaptado ao canal)."
+          }
+        }
+      }
+    },
+    "escalation_matrix": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["symptom", "primary"],
+        "properties": {
+          "symptom": {"type": "string"},
+          "primary": {
+            "type": "string",
+            "description": "user_id do escalation target (formato depende do canal: users/ID | email | nome)"
+          },
+          "parallel": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "user_ids adicionais notificados em paralelo"
+            }
+          },
+          "sla_minutes": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "required": ["destination"],
+      "properties": {
+        "destination": {
+          "type": "string",
+          "pattern": "^bigquery://"
+        },
+        "log_redacted": {"type": "boolean", "default": true}
+      }
+    },
+    "refinement_backlog": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["question"],
+        "properties": {
+          "question": {"type": "string"},
+          "priority": {"enum": ["low", "medium", "high"]},
+          "asked": {"type": "string", "format": "date"}
+        }
+      }
+    }
+  }
+}

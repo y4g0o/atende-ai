@@ -1,0 +1,51 @@
+# Globals — regras herdadas por todas as áreas
+
+# === PREENCHA ESTE VALOR ===
+# source_test: canal EXCLUSIVO para testes de mensagem.
+# NUNCA use o canal de produção para testes.
+# Formato por tipo de canal:
+#   google_chat: "spaces/XXXXXXXXXXXXXXX"
+#   email:       "label:SUPORTE-TESTE" (label Gmail) ou "from:teste@dominio.com"
+#   whatsapp:    "+55XX..." (número de teste) ou ID do grupo de teste
+channel_test:
+  source_test: "REPLACE_TEST_SOURCE"
+
+# Convenções do canal (adapte conforme a cultura do seu canal)
+conventions:
+  - { sinal: "👀", significado: "Estou analisando", acao: "não sobrepor" }
+  - { sinal: "✅", significado: "Resolvido", acao: "thread fechada" }
+  - { sinal: "PSC", significado: "Pode ser confirmado", acao: "aguardar confirmação do solicitante" }
+
+# Padrão de mensagem (template base que áreas podem override)
+# {{ requester_address }} é resolvido pelo engine conforme channel.address_format:
+#   mention  → <users/USER_ID>   (google_chat)
+#   email    → endereço de e-mail do solicitante
+#   name     → nome em texto puro (whatsapp, canais sem menção)
+default_response_template:
+  pt-BR: |
+    Olá {{ requester_address }}!
+
+    {{ action_message }} ✅
+
+    Qualquer dúvida, nos avise 🙏
+  es: |
+    Hola {{ requester_address }}!
+
+    {{ action_message }} ✅
+
+    ¿Cualquier duda, nos avisas? 🙏
+
+# Regras absolutas (NÃO desligáveis por área)
+absolute_rules:
+  - never_test_in_production: true
+  - require_approval_pause_2: true
+  - require_approval_pause_3: true
+  - require_audit_log: true
+  - require_pii_redaction_for_llm: true
+  - block_users_all_mention: true   # nunca usar <users/all> — regra específica do google_chat
+
+# E-mail do operador é capturado runtime — nunca persistido no YAML
+operator_email_runtime: true
+
+# Idiomas suportados
+supported_languages: ["pt-BR", "es"]

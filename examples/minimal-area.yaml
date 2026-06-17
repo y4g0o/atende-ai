@@ -1,0 +1,58 @@
+# minimal-area.yaml -- exemplo minimo valido (1 tipo, sem queries SQL complexas)
+# Copie este arquivo como ponto de partida para uma area simples.
+# Para uma area de suporte completa (8 tipos com blockers, entity_lookups e escalacao),
+# use areas/helpdesk-saas.yaml
+# Para presets de outros canais (email, WhatsApp), veja examples/channels/
+
+schema: atende.v1
+
+area:
+  name: minha-area
+  description: "Descricao curta da area"
+  owner_team: "Time Responsavel"
+  language_default: pt-BR
+
+channel:
+  type: google_chat                            # google_chat | email | whatsapp
+  tools:
+    read: mcp__claude_ai_Google_Chat__list_messages
+    search: mcp__claude_ai_Google_Chat__search_messages
+    send: mcp__claude_ai_Google_Chat__send_message
+  source_production: "spaces/REPLACE_PRODUCTION_SPACE_ID"
+  # source_test herdado de globals.yaml -- preencha la
+  address_format: mention                      # mention | email | name
+
+people:
+  - { name: "Operador Exemplo", user_id: "users/100000000000000000001" }
+  # Formato de user_id por canal:
+  #   google_chat: "users/DIGITS"
+  #   email:       "operador@dominio.com"
+  #   whatsapp:    "+55119999999"
+
+tools_allowed:
+  # I/O do canal (inclua as tools de channel.tools)
+  - mcp__claude_ai_Google_Chat__list_messages
+  - mcp__claude_ai_Google_Chat__send_message
+  # Operacoes
+  - mcp__claude_ai_Google_Cloud_BigQuery__execute_sql_readonly
+
+entity_lookups: []
+
+types:
+  - id: 1
+    name: "Tipo exemplo de baixo risco"
+    risk_level: safe
+    keywords: ["exemplo", "teste", "duvida"]
+    operation:
+      tool: "manual:guide"
+      payload: {}
+    response_template:
+      pt-BR: |
+        Olá {{ requester_address }}!
+
+        Recebido! ✅ Vou processar e retorno aqui 🙏
+
+        Qualquer dúvida, nos avise!
+
+audit:
+  destination: "bigquery://REPLACE_AUDIT_PROJECT.atende_audit.executions"

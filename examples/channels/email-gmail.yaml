@@ -1,0 +1,30 @@
+# Preset de canal: Email via Gmail MCP
+# Cole este bloco em areas/<sua-area>.yaml e preencha REPLACE_.
+#
+# Pré-requisito: MCP "claude.ai Gmail" configurado no AI CLI.
+# Envio: sempre como RASCUNHO (create_draft) — operador revisa e envia manualmente.
+# Isso reforça a Pausa 3 de aprovação — nenhuma mensagem chega ao cliente sem revisão.
+# Menção no template: {{ requester_address }} → endereço de e-mail do solicitante
+
+channel:
+  type: email
+  tools:
+    read:   mcp__claude_ai_Gmail__get_thread
+    search: mcp__claude_ai_Gmail__search_threads
+    send:   mcp__claude_ai_Gmail__create_draft   # rascunho — operador envia
+  source_production: "label:REPLACE_LABEL_PRODUCAO"   # ex: "label:suporte-prod" ou "to:suporte@empresa.com"
+  source_test:       "label:REPLACE_LABEL_TESTE"      # NUNCA usar produção para testes
+  address_format: email   # endereço de e-mail na resposta (sem sintaxe de menção)
+
+# tools_allowed deve incluir as tools acima + tools de operação:
+# tools_allowed:
+#   - mcp__claude_ai_Gmail__get_thread
+#   - mcp__claude_ai_Gmail__search_threads
+#   - mcp__claude_ai_Gmail__create_draft
+#   - mcp__claude_ai_Google_Cloud_BigQuery__execute_sql_readonly
+#   - mcp__SEU_MCP_DE_OPERACAO__*
+
+# Formato de user_id em people[]:
+# people:
+#   - { name: "Fulano Silva", user_id: "fulano@empresa.com", role: operator }
+#   # user_id = endereço de e-mail (campo "from" do Gmail)

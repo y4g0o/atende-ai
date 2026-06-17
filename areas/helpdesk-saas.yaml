@@ -1,0 +1,418 @@
+# helpdesk-saas.yaml — area de exemplo (dominio ficticio: helpdesk de plataforma SaaS)
+# Canal de referencia: Google Chat (substitua o bloco channel para usar email ou WhatsApp)
+#
+# === PREENCHA ESTES VALORES ===
+# Busque por REPLACE_ e YOUR_ e substitua pelos valores reais da sua organizacao.
+#
+# Campos obrigatorios:
+#   channel.source_production → ID do seu canal de producao
+#   channel.tools.*           → tools MCP do canal (preset google_chat abaixo)
+#   people[].user_id          → identificadores reais dos membros no canal
+#   tools_allowed             → MCPs disponiveis na sua instancia do AI CLI
+#   entity_lookups[].sql      → substitua REPLACE_PROJECT e REPLACE_DATASET
+#   types[].operation.tool    → tools MCP reais
+#   audit.destination         → projeto BigQuery de auditoria
+#
+# Convencao de placeholder:
+#   spaces/REPLACE_*          → formato Google Chat (spaces/XXXXXXXXXXXX)
+#   users/10000000000000000X  → identificador de pessoa no canal (adapte por canal)
+#   bigquery://REPLACE_*      → valida pelo schema (regex ^bigquery://)
+#   mcp__YOUR_HELPDESK_MCP__* → valida pelo schema (regex ^mcp__...)
+#
+# Para outros canais, veja examples/channels/ para presets prontos.
+
+schema: atende.v1
+
+area:
+  name: helpdesk-saas
+  description: "Resolve tickets de acesso, billing e workspace da plataforma SaaS"
+  owner_team: "Platform Support"
+  severity_default: medium
+  language_default: pt-BR
+
+channel:
+  type: google_chat
+  tools:
+    read: mcp__claude_ai_Google_Chat__list_messages
+    search: mcp__claude_ai_Google_Chat__search_messages
+    send: mcp__claude_ai_Google_Chat__send_message
+  source_production: "spaces/REPLACE_PRODUCTION_SPACE_ID"
+  source_test: "spaces/REPLACE_TEST_SPACE_ID"
+  address_format: mention
+
+people:
+  # Substitua pelos User IDs reais (obtenha via list_messages > senderId)
+  - { name: "Support Operator",    user_id: "users/100000000000000000001", role: operator }
+  - { name: "Support Relay",       user_id: "users/100000000000000000002", role: relay }
+  - { name: "Billing Lead",        user_id: "users/100000000000000000003", role: escalation }
+  - { name: "Tech Lead",           user_id: "users/100000000000000000004", role: escalation }
+  - { name: "Compliance Officer",  user_id: "users/100000000000000000005", role: escalation }
+
+authorizations:
+  - rule: "tipo #4 (ajustar-quota)"
+    allowed_only: ["Billing Lead", "Support Operator"]
+  - rule: "tipo #8 (excluir-conta)"
+    allowed_only: ["Compliance Officer", "Tech Lead"]
+
+tools_allowed:
+  # I/O do canal (deve incluir as tools declaradas em channel.tools)
+  - mcp__claude_ai_Google_Chat__list_messages
+  - mcp__claude_ai_Google_Chat__search_messages
+  - mcp__claude_ai_Google_Chat__send_message
+  # Operações
+  - mcp__claude_ai_Google_Cloud_BigQuery__execute_sql_readonly
+  - mcp__YOUR_HELPDESK_MCP__*
+
+entity_lookups:
+  - id: by_email
+    description: "Buscar conta de usuario por e-mail"
+    sql: |
+      SELECT user_uuid, email, display_name, account_id, is_active, plan
+      FROM `REPLACE_PROJECT.REPLACE_DATASET.users`
+      WHERE LOWER(email) = LOWER(@email)
+      LIMIT 5
+    params:
+      - { name: email, type: string, required: true }
+
+  - id: by_name
+    # ARMADILHA: busque por nome amplo primeiro (sem filtro de workspace/tipo).
+    # Filtros adicionais so se retornar mais de ~10 resultados ambiguos.
+    description: "Buscar usuario ou workspace por nome (busca ampla)"
+    sql: |
+      SELECT user_uuid, email, display_name, account_id, is_active, plan
+      FROM `REPLACE_PROJECT.REPLACE_DATASET.users`
+      WHERE LOWER(display_name) LIKE LOWER(CONCAT('%', @name, '%'))
+      LIMIT 10
+    params:
+      - { name: name, type: string, required: true }
+
+  - id: workspace_by_id
+    description: "Buscar workspace por UUID"
+    sql: |
+      SELECT workspace_uuid, name, account_id, is_active, owner_user_uuid, item_count
+      FROM `REPLACE_PROJECT.REPLACE_DATASET.workspaces`
+      WHERE workspace_uuid = @workspace_id
+      LIMIT 1
+    params:
+      - { name: workspace_id, type: string, required: true }
+
+types:
+
+  # -----------------------------------------------------------------
+  # Tipo #1 — Reset senha / desbloquear login
+  # -----------------------------------------------------------------
+  - id: 1
+    name: "Reset senha / desbloquear login"
+    severity: low
+    risk_level: safe
+    keywords:
+      - "nao consigo entrar"
+      - "senha errada"
+      - "bloqueado"
+      - "reset de senha"
+      - "nao lembra senha"
+      - "redefinir senha"
+      - "login falha"
+      - "esqueci a senha"
+    requires: [user_uuid]
+    blockers:
+      # ARMADILHA: valide o estado atual antes de executar.
+      # Conta ja ativa + "nao consigo entrar" pode ser problema de outro tipo (MFA, IP bloqueado).
+      - check: state_is_disabled
+        else_message: "Conta esta suspensa — reset de senha nao vai resolver. Use tipo #3 (reativar-conta) primeiro ou verifique o motivo da suspensao."
+    operation:
+      tool: "mcp__YOUR_HELPDESK_MCP__Reset_Senha"
+      payload:
+        operacao: "REPLACE_OPERATION_RESET_PASSWORD"
+        user_uuid: "{{ entity_uuid }}"
+        email: "{{ operator_email }}"
+    response_template:
+      pt-BR: |
+        Olá <users/{{ requester_id }}>!
+
+        O reset de senha para **{{ entity_name }}** foi enviado para o e-mail cadastrado ✅
+
+        Peça para verificar também na caixa de spam 🙏 Qualquer dúvida, nos avise!
+
+  # -----------------------------------------------------------------
+  # Tipo #2 — Provisionar acesso / criar usuario
+  # -----------------------------------------------------------------
+  - id: 2
+    name: "Provisionar acesso / criar usuario"
+    severity: medium
+    risk_level: sensitive
+    keywords:
+      - "criar usuario"
+      - "provisionar acesso"
+      - "adicionar usuario"
+      - "novo usuario"
+      - "convidar"
+      - "acesso negado"
+      - "nao tem acesso"
+    requires: [email]
+    blockers:
+      - check: email_already_exists
+        sql: |
+          SELECT user_uuid FROM `REPLACE_PROJECT.REPLACE_DATASET.users`
+          WHERE LOWER(email) = LOWER('{{ email }}')
+        if_returns_rows: "E-mail ja cadastrado — usuario existe. Verifique se precisa de ajuste de permissao (tipo #4) em vez de criar novo."
+    operation:
+      tool: "mcp__YOUR_HELPDESK_MCP__Provisionar_Acesso"
+      payload:
+        operacao: "REPLACE_OPERATION_PROVISION_ACCESS"
+        email: "{{ email }}"
+        workspace_id: "{{ workspace_id }}"
+        role: "{{ role }}"
+        invitado_por: "{{ operator_email }}"
+    response_template:
+      pt-BR: |
+        Olá <users/{{ requester_id }}>!
+
+        Acesso provisionado com sucesso ✅
+
+        Um convite foi enviado para **{{ entity_name }}**. Qualquer dúvida, nos avise!
+
+  # -----------------------------------------------------------------
+  # Tipo #3 — Reativar conta suspensa
+  # -----------------------------------------------------------------
+  - id: 3
+    name: "Reativar conta suspensa"
+    severity: medium
+    risk_level: sensitive
+    keywords:
+      - "conta suspensa"
+      - "reativar conta"
+      - "conta bloqueada"
+      - "acesso suspenso"
+      - "conta desativada"
+      - "conta inativa"
+    requires: [user_uuid]
+    blockers:
+      - check: state_is_disabled
+        else_message: "Conta ja esta ativa — confirmar se e a conta correta ou se o problema e outro."
+      # ARMADILHA: contas suspensas por fraude nao devem ser reativadas sem revisao.
+      # Este blocker detecta suspensao por fraude via query e impede a operacao.
+      - check: suspended_for_fraud
+        sql: |
+          SELECT suspension_reason FROM `REPLACE_PROJECT.REPLACE_DATASET.suspensions`
+          WHERE user_uuid = '{{ entity_uuid }}' AND reason_code = 'FRAUD'
+        if_returns_rows: "Conta suspensa por fraude — NAO reativar sem revisao do Compliance Officer. Escalar obrigatoriamente."
+    operation:
+      tool: "mcp__YOUR_HELPDESK_MCP__Reativar_Conta"
+      payload:
+        operacao: "REPLACE_OPERATION_REACTIVATE"
+        user_uuid: "{{ entity_uuid }}"
+        email: "{{ operator_email }}"
+    escalation_to:
+      - "users/100000000000000000005"   # Compliance Officer — para casos de fraude
+    response_template:
+      pt-BR: |
+        Olá <users/{{ requester_id }}>!
+
+        A conta de **{{ entity_name }}** foi reativada com sucesso ✅
+
+        Peça para tentar o login novamente 🙏 Qualquer dúvida, nos avise!
+
+  # -----------------------------------------------------------------
+  # Tipo #4 — Ajustar quota / limite de plano
+  # -----------------------------------------------------------------
+  - id: 4
+    name: "Ajustar quota / limite de plano"
+    severity: medium
+    risk_level: sensitive
+    keywords:
+      - "aumentar limite"
+      - "quota excedida"
+      - "upgrade de plano"
+      - "plano"
+      - "storage cheio"
+      - "limite atingido"
+      - "ajustar quota"
+    requires: [user_uuid]
+    blockers:
+      - check: billing_authorization
+        else_message: "Ajuste de quota/plano requer autorizacao do Billing Lead. Confirmar com ele antes de prosseguir."
+    # ARMADILHA: este endpoint usa account_id (nao user_uuid).
+    # Passar user_uuid retorna 400 sem mensagem clara. Busque account_id via entity_lookup.
+    operation:
+      tool: "mcp__YOUR_HELPDESK_MCP__Ajustar_Quota"
+      payload:
+        operacao: "REPLACE_OPERATION_ADJUST_QUOTA"
+        account_id: "{{ account_id }}"
+        new_quota: "{{ new_quota }}"
+        email: "{{ operator_email }}"
+    escalation_to:
+      - "users/100000000000000000003"   # Billing Lead
+    response_template:
+      pt-BR: |
+        Olá <users/{{ requester_id }}>!
+
+        A quota da conta **{{ entity_name }}** foi ajustada com sucesso ✅
+
+        Qualquer dúvida, nos avise!
+
+  # -----------------------------------------------------------------
+  # Tipo #5 — Bug de billing / cobranca incorreta
+  # Sem operacao automatica — apenas escalacao para o time de Billing.
+  # -----------------------------------------------------------------
+  - id: 5
+    name: "Bug de billing / cobranca incorreta"
+    severity: high
+    risk_level: safe
+    keywords:
+      - "cobranca errada"
+      - "fatura duplicada"
+      - "cobrado duas vezes"
+      - "valor incorreto"
+      - "billing"
+      - "estorno"
+      - "reembolso"
+      - "nota fiscal"
+    operation:
+      tool: "manual:escalate"
+      payload: {}
+    escalation_to:
+      - "users/100000000000000000003"   # Billing Lead
+    response_template:
+      pt-BR: |
+        Olá <users/{{ requester_id }}>!
+
+        Recebemos sua solicitação sobre cobrança 🙏
+
+        Estou encaminhando para o time de Billing para análise. Eles retornam em até 1 dia útil.
+
+  # -----------------------------------------------------------------
+  # Tipo #6 — Exportar dados / relatorio
+  # -----------------------------------------------------------------
+  - id: 6
+    name: "Exportar dados / relatorio"
+    severity: low
+    risk_level: safe
+    keywords:
+      - "exportar dados"
+      - "relatorio"
+      - "download de dados"
+      - "backup"
+      - "exportar csv"
+      - "exportar planilha"
+    requires: [workspace_id]
+    operation:
+      tool: "mcp__YOUR_HELPDESK_MCP__Exportar_Dados"
+      payload:
+        operacao: "REPLACE_OPERATION_EXPORT"
+        workspace_id: "{{ workspace_id }}"
+        formato: "csv"
+        email: "{{ operator_email }}"
+    response_template:
+      pt-BR: |
+        Olá <users/{{ requester_id }}>!
+
+        A exportação do workspace **{{ entity_name }}** foi iniciada ✅
+
+        O link de download chegará no e-mail do administrador em alguns minutos 🙏
+
+  # -----------------------------------------------------------------
+  # Tipo #7 — Migrar workspace (DESTRUTIVO)
+  # -----------------------------------------------------------------
+  - id: 7
+    name: "Migrar workspace"
+    severity: high
+    risk_level: destructive
+    keywords:
+      - "migrar workspace"
+      - "transferir dados"
+      - "mover workspace"
+      - "unificar workspace"
+      - "mesclar workspace"
+    requires: [source_workspace_id, target_workspace_id]
+    blockers:
+      - check: both_workspaces_have_data
+        sql: |
+          SELECT workspace_uuid, item_count
+          FROM `REPLACE_PROJECT.REPLACE_DATASET.workspaces`
+          WHERE workspace_uuid IN ('{{ source_workspace_id }}', '{{ target_workspace_id }}')
+            AND item_count > 0
+        if_returns_rows: "Ambos os workspaces tem dados — migracao destrutiva. Verificar com backoffice antes."
+      - check: target_workspace_active
+        sql: |
+          SELECT workspace_uuid FROM `REPLACE_PROJECT.REPLACE_DATASET.workspaces`
+          WHERE workspace_uuid = '{{ target_workspace_id }}' AND is_active = false
+        if_returns_rows: "Workspace destino esta inativo — nao e possivel migrar para workspace desativado."
+    operation:
+      tool: "mcp__YOUR_HELPDESK_MCP__Migrar_Workspace"
+      payload:
+        operacao: "REPLACE_OPERATION_MIGRATE_WORKSPACE"
+        source_workspace_id: "{{ source_workspace_id }}"
+        target_workspace_id: "{{ target_workspace_id }}"
+        email: "{{ operator_email }}"
+    escalation_to:
+      - "users/100000000000000000004"   # Tech Lead
+    response_template:
+      pt-BR: |
+        Olá <users/{{ requester_id }}>!
+
+        A migração do workspace foi iniciada com sucesso ✅
+
+        O processo pode levar alguns minutos. Qualquer dúvida, nos avise!
+
+  # -----------------------------------------------------------------
+  # Tipo #8 — Excluir conta (offboarding / LGPD)
+  # DESTRUTIVO — exige frase literal de confirmacao
+  # -----------------------------------------------------------------
+  - id: 8
+    name: "Excluir conta (offboarding / LGPD)"
+    severity: critical
+    risk_level: destructive
+    keywords:
+      - "excluir conta"
+      - "deletar conta"
+      - "cancelar conta"
+      - "remover usuario"
+      - "offboarding"
+      - "LGPD"
+      - "direito ao esquecimento"
+      - "apagar dados"
+    requires: [user_uuid]
+    blockers:
+      - check: account_has_active_subscriptions
+        sql: |
+          SELECT subscription_id FROM `REPLACE_PROJECT.REPLACE_DATASET.subscriptions`
+          WHERE user_uuid = '{{ entity_uuid }}' AND status = 'active'
+        if_returns_rows: "Conta tem assinatura ativa — cancelar assinatura primeiro antes de excluir."
+    operation:
+      tool: "mcp__YOUR_HELPDESK_MCP__Excluir_Conta"
+      payload:
+        operacao: "REPLACE_OPERATION_DELETE_ACCOUNT"
+        user_uuid: "{{ entity_uuid }}"
+        reason: "offboarding"
+        email: "{{ operator_email }}"
+    escalation_to:
+      - "users/100000000000000000005"   # Compliance Officer
+    response_template:
+      pt-BR: |
+        Olá <users/{{ requester_id }}>!
+
+        A conta de **{{ entity_name }}** foi excluída conforme solicitado ✅
+
+        Todos os dados pessoais foram removidos de acordo com nossa política de privacidade 🙏
+
+escalation_matrix:
+  - symptom: "bug de billing / cobranca incorreta"
+    primary: "users/100000000000000000003"
+    sla_minutes: 60
+  - symptom: "conta suspensa por fraude"
+    primary: "users/100000000000000000005"
+    parallel: ["users/100000000000000000004"]
+    sla_minutes: 30
+  - symptom: "bug tecnico / erro de sistema"
+    primary: "users/100000000000000000004"
+    sla_minutes: 120
+
+audit:
+  destination: "bigquery://REPLACE_AUDIT_PROJECT.atende_audit.executions"
+  log_redacted: true
+
+refinement_backlog:
+  - { question: "Adicionar suporte a idioma 'es' (espanhol) nos templates de resposta?", priority: low }
+  - { question: "O SLA de escalacao por severity esta correto para o seu time?", priority: medium }
+  - { question: "O tipo #5 (bug-billing) deve ter automacao parcial (ex: abrir ticket no sistema interno)?", priority: low }

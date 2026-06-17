@@ -1,0 +1,38 @@
+# Preset de canal: WhatsApp
+# Cole este bloco em areas/<sua-area>.yaml e preencha REPLACE_.
+#
+# Pré-requisito: MCP do seu provedor WhatsApp configurado no AI CLI.
+# Provedores comuns: Twilio, 360Dialog, WABA oficial, Meta Cloud API.
+# O nome exato dos tools (read/search/send) depende do MCP instalado.
+#
+# Não há MCP de WhatsApp embarcado no atende-AI — você pluga o do seu provedor.
+# Menção no template: {{ requester_address }} → nome em texto puro (sem sintaxe especial)
+
+channel:
+  type: whatsapp
+  tools:
+    read:   mcp__YOUR_WHATSAPP_MCP__read_thread     # substitua pelo tool real do seu provedor
+    search: mcp__YOUR_WHATSAPP_MCP__search          # opcional — omitir se o provedor não suporta
+    send:   mcp__YOUR_WHATSAPP_MCP__send_message    # substitua pelo tool real do seu provedor
+  source_production: "REPLACE_GROUP_ID_OU_NUMERO"   # número (+5511...) ou group_id do provedor
+  source_test:       "REPLACE_NUMERO_TESTE"          # NUNCA usar produção para testes
+  address_format: name   # nome em texto puro na resposta (WhatsApp não suporta menção de user ID)
+
+# tools_allowed deve incluir as tools acima + tools de operação:
+# tools_allowed:
+#   - mcp__YOUR_WHATSAPP_MCP__read_thread
+#   - mcp__YOUR_WHATSAPP_MCP__search
+#   - mcp__YOUR_WHATSAPP_MCP__send_message
+#   - mcp__claude_ai_Google_Cloud_BigQuery__execute_sql_readonly
+#   - mcp__SEU_MCP_DE_OPERACAO__*
+
+# Formato de user_id em people[]:
+# people:
+#   - { name: "Fulano Silva", user_id: "+5511999999999", role: operator }
+#   # user_id = número de telefone ou ID do participante conforme o provedor
+
+# Notas de comportamento:
+# - WhatsApp não tem menção nativa de usuário → address_format: name (texto puro)
+# - Threads no WhatsApp são identificadas por message_id do provedor
+# - A varredura (/atende-varredura) usa source_production como group_id do canal de suporte
+# - Sem sinal ✅ nativo → tratar "ok", "obrigado", "resolvido" como fechamento
