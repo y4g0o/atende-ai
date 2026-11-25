@@ -113,7 +113,7 @@ Use `mcp__claude_ai_Google_Chat__search_messages` para cada tipo:
 # Pseudocodigo
 for tipo in YAML.types:
     results = search_messages(
-        conversationId=area.chat.space_production,
+        conversationId=area.channel.source_production,
         keywords=tipo.keywords,
         orderBy="CREATE_TIME_DESC",
         pageSize=5

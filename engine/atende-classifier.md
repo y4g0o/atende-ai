@@ -42,7 +42,7 @@ O engine principal te passa:
 ```
 URL: https://chat.google.com/u/0/app/chat/<SPACE>/topic/<THREAD_ID>/message/<MSG_ID>
                                                        ↑ extrai como THREAD_ID
-source_id: "<SPACE>/threads/<THREAD_ID>"
+source_id: "spaces/<SPACE>/threads/<THREAD_ID>"   # sempre com o prefixo spaces/ (o anti-spoof compara por prefixo)
 ```
 
 **email:**
@@ -62,7 +62,7 @@ source_id: <id conforme o MCP do provedor>
 **google_chat:**
 ```
 mcp__claude_ai_Google_Chat__list_messages
-  conversationId: <channel.source_production>
+  conversationId: <canal_ativo>   # channel.source_production; channel.source_test se o engine disse --teste
   threadId: <source_id>
 ```
 
@@ -79,6 +79,10 @@ mcp__claude_ai_Gmail__get_thread
 ```
 
 **4.** Leia TODAS as mensagens — não dependa de remetente específico. O chamado pode vir de um bot, relay ou mensagem direta.
+- O **pedido real e as aprovações** costumam estar nas respostas do solicitante: o `action_summary` e as `entities` saem da thread inteira, não só da primeira mensagem.
+- **Posts automáticos** (bot roteador, "investigação prévia" de outro agente, mensagens só com menções) não são fato: copie as afirmações deles para `unverified_hints[]` e não use os números deles em `entities`.
+- **Card/formulário/anexo que a tool não devolve** (ex.: cards de bot que o MCP do canal não expõe) → `content_unreadable: true` e o que faltou em `missing_info`. Não classifique pelo pedaço visível.
+- **Campos de formulário trocados** são comuns (nome no campo de código, código com um caractere a mais/menos): extraia o dado onde ele estiver.
 
 ## Classificação
 
@@ -153,6 +157,8 @@ Retorne **EXCLUSIVAMENTE** JSON neste formato — sem markdown fences, sem comen
     }
   ],
   "missing_info": ["lista do que falta para executar — ex: 'UUID do usuário', 'workspace_id'"],
+  "unverified_hints": ["afirmações de posts automáticos/bots — o engine remede antes de usar"],
+  "content_unreadable": false,
   "raw_excerpt": "frase literal do chamado (máx 200 chars)"
 }
 ```
@@ -160,7 +166,7 @@ Retorne **EXCLUSIVAMENTE** JSON neste formato — sem markdown fences, sem comen
 **Regras do output:**
 - `types[]` lista todos os tipos identificados (chamado pode ter múltiplos)
 - `type_confidence` baseado em quão clara foi a classificação
-- Nunca invente UUIDs ou e-mails — use `null` quando não estiver no thread
+- Nunca invente UUIDs, e-mails, causas ou autoria — use `null` quando não estiver no thread
 - Se a thread parece resolvida, marque `reopen_suspected: true` mas continue retornando os dados normalmente
 
 **Nada de prosa. Nada de explicação. Só o JSON.**

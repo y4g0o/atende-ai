@@ -16,6 +16,7 @@ import os
 import shutil
 import subprocess
 import uuid
+import warnings
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,7 +45,7 @@ class AuditEvent:
     sent_at: str | None = None
     result_status: str = "pending"   # pending | success | partial | failed
     result_message: str = ""
-    thread_url: str = ""
+    source_id: str = ""              # identificador do thread no canal (Chat, Gmail, WhatsApp)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False, default=str)
@@ -116,7 +117,8 @@ def log_execution(
     tool_name: str,
     payload: Any = None,
     requester_id: str = "",
-    thread_url: str = "",
+    source_id: str = "",
+    thread_url: str = "",            # DEPRECATED: use source_id (mantido por compatibilidade)
     approved_at: str | None = None,
     sent_at: str | None = None,
     result_status: str = "success",
@@ -130,7 +132,10 @@ def log_execution(
     Comportamento:
       - Se prefer_bq=True e tabela BQ existe → tenta inserir la. Se falhar, cai pro local.
       - Sempre escreve em local-jsonl (mesmo apos sucesso BQ, para redundancia).
-      - NUNCA lanca excecao — auditoria falha silenciosa nao pode quebrar o engine.
+      - NAO lanca excecao: quando esta funcao roda a operacao ja foi executada, e
+        uma excecao aqui so esconderia o resultado do operador. A garantia de
+        "falhar cedo sem auditoria" e de `check_audit_available()`, que o engine
+        chama no Passo 0, ANTES de qualquer execucao.
 
     Args:
         area: nome da area (ex: 'helpdesk-saas')
@@ -139,7 +144,8 @@ def log_execution(
         tool_name: MCP/tool chamada
         payload: payload da operacao — sera hashed (NAO armazenado em claro)
         requester_id: User ID do solicitante (ex: 'users/...')
-        thread_url: URL do thread Google Chat
+        source_id: identificador do thread no canal (spaces/.../threads/..., thread_id do Gmail, msg_id)
+        thread_url: DEPRECATED — alias de source_id
         approved_at: timestamp ISO da Pausa 2
         sent_at: timestamp ISO da Pausa 3
         result_status: success | partial | failed | pending
@@ -149,6 +155,9 @@ def log_execution(
     Returns:
         AuditEvent registrado.
     """
+    if thread_url:
+        warnings.warn("log_execution(thread_url=...) esta obsoleto; use source_id=",
+                      DeprecationWarning, stacklevel=2)
     event = AuditEvent(
         area=area,
         type_id=type_id,
@@ -160,7 +169,7 @@ def log_execution(
         sent_at=sent_at,
         result_status=result_status,
         result_message=result_message,
-        thread_url=thread_url,
+        source_id=source_id or thread_url,
     )
 
     # Sempre tenta local primeiro (rapido, sem rede)
@@ -168,9 +177,34 @@ def log_execution(
 
     # Best-effort BQ
     if prefer_bq and _bq_table_exists(bq_table):
-        _bq_insert(event, bq_table)
+        if not _bq_insert(event, bq_table):
+            # nao lanca (a operacao ja rodou), mas a falha precisa ficar visivel
+            print(f"[audit_logger] FALHA ao inserir no BigQuery ({bq_table}); "
+                  f"evento {event.execution_id} ficou so no log local")
 
     return event
+
+
+def check_audit_available(
+    prefer_bq: bool = True,
+    bq_table: str = DEFAULT_BQ_TABLE,
+    local_log_path: Path = DEFAULT_LOCAL_LOG,
+) -> tuple[bool, str]:
+    """Confere, ANTES de executar qualquer operacao, se ha onde gravar a auditoria.
+
+    Retorna (ok, destino_ou_motivo). O engine para no Passo 0 se ok=False —
+    invariante "sem audit, falha cedo". Nao escreve no log (pode criar o diretorio pai).
+    """
+    if prefer_bq and _bq_table_exists(bq_table):
+        return True, f"bigquery:{bq_table}"
+    try:
+        local_log_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        return False, f"nao foi possivel criar {local_log_path.parent}: {e}"
+    target = local_log_path if local_log_path.exists() else local_log_path.parent
+    if os.access(target, os.W_OK):
+        return True, f"local:{local_log_path}"
+    return False, f"sem permissao de escrita em {target}"
 
 
 def tail_local_log(n: int = 50, area: str | None = None, log_path: Path = DEFAULT_LOCAL_LOG) -> list[dict]:
@@ -183,7 +217,10 @@ def tail_local_log(n: int = 50, area: str | None = None, log_path: Path = DEFAUL
     out = []
     for ln in lines[-n:]:
         try:
-            out.append(json.loads(ln))
+            row = json.loads(ln)
         except json.JSONDecodeError:
             continue
+        if "thread_url" in row:  # linha gravada antes da troca para source_id
+            row.setdefault("source_id", row.pop("thread_url"))
+        out.append(row)
     return out

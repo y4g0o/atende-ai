@@ -128,9 +128,9 @@ types:
         email: "{{ operator_email }}"
     response_template:
       pt-BR: |
-        Olá <users/{{ requester_id }}>!
+        Olá {{ requester_address }}!
 
-        O reset de senha para **{{ entity_name }}** foi enviado para o e-mail cadastrado ✅
+        O reset de senha para {{ entity_name }} foi enviado para o e-mail cadastrado ✅
 
         Peça para verificar também na caixa de spam 🙏 Qualquer dúvida, nos avise!
 
@@ -154,7 +154,7 @@ types:
       - check: email_already_exists
         sql: |
           SELECT user_uuid FROM `REPLACE_PROJECT.REPLACE_DATASET.users`
-          WHERE LOWER(email) = LOWER('{{ email }}')
+          WHERE LOWER(email) = LOWER(@email)
         if_returns_rows: "E-mail ja cadastrado — usuario existe. Verifique se precisa de ajuste de permissao (tipo #4) em vez de criar novo."
     operation:
       tool: "mcp__YOUR_HELPDESK_MCP__Provisionar_Acesso"
@@ -166,11 +166,11 @@ types:
         invitado_por: "{{ operator_email }}"
     response_template:
       pt-BR: |
-        Olá <users/{{ requester_id }}>!
+        Olá {{ requester_address }}!
 
         Acesso provisionado com sucesso ✅
 
-        Um convite foi enviado para **{{ entity_name }}**. Qualquer dúvida, nos avise!
+        Um convite foi enviado para {{ entity_name }}. Qualquer dúvida, nos avise!
 
   # -----------------------------------------------------------------
   # Tipo #3 — Reativar conta suspensa
@@ -195,7 +195,7 @@ types:
       - check: suspended_for_fraud
         sql: |
           SELECT suspension_reason FROM `REPLACE_PROJECT.REPLACE_DATASET.suspensions`
-          WHERE user_uuid = '{{ entity_uuid }}' AND reason_code = 'FRAUD'
+          WHERE user_uuid = @entity_uuid AND reason_code = 'FRAUD'
         if_returns_rows: "Conta suspensa por fraude — NAO reativar sem revisao do Compliance Officer. Escalar obrigatoriamente."
     operation:
       tool: "mcp__YOUR_HELPDESK_MCP__Reativar_Conta"
@@ -207,9 +207,9 @@ types:
       - "users/100000000000000000005"   # Compliance Officer — para casos de fraude
     response_template:
       pt-BR: |
-        Olá <users/{{ requester_id }}>!
+        Olá {{ requester_address }}!
 
-        A conta de **{{ entity_name }}** foi reativada com sucesso ✅
+        A conta de {{ entity_name }} foi reativada com sucesso ✅
 
         Peça para tentar o login novamente 🙏 Qualquer dúvida, nos avise!
 
@@ -245,9 +245,9 @@ types:
       - "users/100000000000000000003"   # Billing Lead
     response_template:
       pt-BR: |
-        Olá <users/{{ requester_id }}>!
+        Olá {{ requester_address }}!
 
-        A quota da conta **{{ entity_name }}** foi ajustada com sucesso ✅
+        A quota da conta {{ entity_name }} foi ajustada com sucesso ✅
 
         Qualquer dúvida, nos avise!
 
@@ -275,7 +275,7 @@ types:
       - "users/100000000000000000003"   # Billing Lead
     response_template:
       pt-BR: |
-        Olá <users/{{ requester_id }}>!
+        Olá {{ requester_address }}!
 
         Recebemos sua solicitação sobre cobrança 🙏
 
@@ -305,9 +305,9 @@ types:
         email: "{{ operator_email }}"
     response_template:
       pt-BR: |
-        Olá <users/{{ requester_id }}>!
+        Olá {{ requester_address }}!
 
-        A exportação do workspace **{{ entity_name }}** foi iniciada ✅
+        A exportação do workspace {{ entity_name }} foi iniciada ✅
 
         O link de download chegará no e-mail do administrador em alguns minutos 🙏
 
@@ -328,15 +328,17 @@ types:
     blockers:
       - check: both_workspaces_have_data
         sql: |
-          SELECT workspace_uuid, item_count
+          # so bloqueia quando OS DOIS tem dados (HAVING), nao quando um deles tem
+          SELECT COUNT(*) AS com_dados
           FROM `REPLACE_PROJECT.REPLACE_DATASET.workspaces`
-          WHERE workspace_uuid IN ('{{ source_workspace_id }}', '{{ target_workspace_id }}')
+          WHERE workspace_uuid IN (@source_workspace_id, @target_workspace_id)
             AND item_count > 0
+          HAVING COUNT(*) = 2
         if_returns_rows: "Ambos os workspaces tem dados — migracao destrutiva. Verificar com backoffice antes."
       - check: target_workspace_active
         sql: |
           SELECT workspace_uuid FROM `REPLACE_PROJECT.REPLACE_DATASET.workspaces`
-          WHERE workspace_uuid = '{{ target_workspace_id }}' AND is_active = false
+          WHERE workspace_uuid = @target_workspace_id AND is_active = false
         if_returns_rows: "Workspace destino esta inativo — nao e possivel migrar para workspace desativado."
     operation:
       tool: "mcp__YOUR_HELPDESK_MCP__Migrar_Workspace"
@@ -349,7 +351,7 @@ types:
       - "users/100000000000000000004"   # Tech Lead
     response_template:
       pt-BR: |
-        Olá <users/{{ requester_id }}>!
+        Olá {{ requester_address }}!
 
         A migração do workspace foi iniciada com sucesso ✅
 
@@ -377,7 +379,7 @@ types:
       - check: account_has_active_subscriptions
         sql: |
           SELECT subscription_id FROM `REPLACE_PROJECT.REPLACE_DATASET.subscriptions`
-          WHERE user_uuid = '{{ entity_uuid }}' AND status = 'active'
+          WHERE user_uuid = @entity_uuid AND status = 'active'
         if_returns_rows: "Conta tem assinatura ativa — cancelar assinatura primeiro antes de excluir."
     operation:
       tool: "mcp__YOUR_HELPDESK_MCP__Excluir_Conta"
@@ -390,9 +392,9 @@ types:
       - "users/100000000000000000005"   # Compliance Officer
     response_template:
       pt-BR: |
-        Olá <users/{{ requester_id }}>!
+        Olá {{ requester_address }}!
 
-        A conta de **{{ entity_name }}** foi excluída conforme solicitado ✅
+        A conta de {{ entity_name }} foi excluída conforme solicitado ✅
 
         Todos os dados pessoais foram removidos de acordo com nossa política de privacidade 🙏
 

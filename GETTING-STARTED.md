@@ -80,8 +80,15 @@ bash scripts/install.sh
 bash scripts/validate.sh
 
 # Verificar que o kit não tem PII antes de compartilhar
+# (padrões reais da sua org em .pii-patterns.local — um regex por linha, gitignored)
 bash scripts/check-no-pii.sh
+
+# Rodar os testes (stdlib unittest; requer pyyaml + jsonschema)
+python3 -m unittest discover -s tests
 ```
+
+> Já tem os comandos `/atende*` instalados a partir de outro repositório (ex.: um fork interno)?
+> O `install.sh` para sem alterar nada e lista os conflitos; use `bash scripts/install.sh --force` para trocar.
 
 ---
 
@@ -89,6 +96,9 @@ bash scripts/check-no-pii.sh
 
 ```bash
 /atende minha-area https://chat.google.com/room/SEU_SPACE/THREAD_ID/...
+
+# Modo teste: lê e responde no channel.source_test (nunca no canal de produção)
+/atende minha-area <URL_de_um_thread_do_canal_de_teste> --teste
 ```
 
 ---
@@ -97,8 +107,8 @@ bash scripts/check-no-pii.sh
 
 Antes de rodar, confirme que substituiu TODOS os placeholders em `areas/minha-area.yaml`:
 
-- [ ] `chat.space_production` → space ID real do seu canal Google Chat
-- [ ] `chat.space_test` → space ID do seu espaço de teste (nunca o de produção)
+- [ ] `channel.source_production` → ID real do seu canal (space, label Gmail ou grupo)
+- [ ] `channel.source_test` → canal de teste (nunca o de produção)
 - [ ] `people[]` → nomes e User IDs reais do seu canal
 - [ ] `authorizations[].allowed_only` → nomes reais das pessoas autorizadas
 - [ ] `tools_allowed` → MCPs reais disponíveis na sua instância de AI CLI
@@ -109,7 +119,7 @@ Antes de rodar, confirme que substituiu TODOS os placeholders em `areas/minha-ar
 - [ ] `audit.destination` → projeto BigQuery de auditoria real
 
 E em `globals.yaml`:
-- [ ] `chat_test.space_test` → space ID de teste real
+- [ ] `channel_test.source_test` → canal de teste real
 
 ---
 
@@ -117,12 +127,14 @@ E em `globals.yaml`:
 
 1. **Nunca enviar mensagem no canal sem aprovação explícita** (Pausa 3)
 2. **Nunca executar operação sem aprovação explícita** (Pausa 2)
-3. **Nunca testar em `space_production`** — só no `space_test`
+3. **Nunca testar em `channel.source_production`** — só no `source_test`
 4. **Nunca usar `<users/all>`** em resposta — notifica o canal inteiro
 5. **Nunca executar tipo `destructive`** sem frase literal de confirmação
 6. **Nunca usar tool fora de `tools_allowed[]`**
 7. **Nunca fixar e-mail do operador no YAML** — sempre `{{ operator_email }}` (capturado runtime)
 8. **Nunca pular audit log**
+9. **Nunca inventar** — causa, autoria e efeito de operação exigem fonte; "não sei" é resposta válida
+10. **Nunca entregar arquivo de uma pessoa sem abrir e conferir o nome** (Checagem de identidade)
 
 ---
 
@@ -131,12 +143,13 @@ E em `globals.yaml`:
 ```
 atende-ai/
 ├── GETTING-STARTED.md         ← este arquivo
-├── globals.yaml               ← regras compartilhadas (preencher space_test)
+├── globals.yaml               ← regras compartilhadas (preencher source_test)
 ├── engine/
 │   ├── atende.md              ← engine principal (/atende <area> <url>)
 │   ├── atende-criar.md        ← wizard de criação de área
 │   ├── atende-refinar.md      ← aprendizado contínuo via audit log
 │   ├── atende-sync.md         ← sync com repositório git
+│   ├── atende-varredura.md    ← varredura do canal → fila priorizada
 │   └── atende-classifier.md   ← subagent classificador (Haiku)
 ├── schemas/
 │   └── atende.v1.json         ← JSON Schema — valida seus YAMLs
@@ -144,6 +157,7 @@ atende-ai/
 │   ├── install.sh             ← instala symlinks em ~/.claude/commands/
 │   ├── validate.sh            ← valida YAMLs contra schema
 │   └── check-no-pii.sh        ← lint anti-vazamento de dados sensíveis
+├── tests/                     ← unittest: libs, scripts e invariantes engine↔schema↔docs
 ├── lib/
 │   ├── pii_redactor.py        ← redação de PII antes de enviar a LLM externo
 │   ├── threshold_cluster.py   ← clustering por similaridade Jaccard

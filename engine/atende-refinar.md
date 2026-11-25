@@ -124,11 +124,18 @@ cd ~/atende-ai && git diff areas/<area>.yaml
 
 Pedir confirmação para comitar.
 
-**5.3** Commit:
+**5.3** Lint de PII (obrigatório — o clone pode ser de um repo público):
+```bash
+bash ~/atende-ai/scripts/check-no-pii.sh
+```
+Saída diferente de 0 → **não commitar**: mostre o trecho acusado e reescreva a lição sem o dado real (ID, nome de cliente, nome de pessoa). Se o script avisar que não há padrões configurados, diga isso ao operador antes de commitar.
+
+**5.4** Commit:
 ```bash
 cd ~/atende-ai && git add areas/<area>.yaml && \
   git commit -m "refine(<area>): {resumo das mudanças}"
 ```
+Lição geral em `docs/07-licoes.md` segue o mesmo caminho (lint → commit). Nunca faça push sem o operador pedir.
 
 ---
 
@@ -138,4 +145,4 @@ cd ~/atende-ai && git add areas/<area>.yaml && \
 2. **Nunca remover blocker `destructive`** sem confirmação literal
 3. **Nunca propor mudança em `globals.yaml`** — refinar é só para `areas/<name>.yaml`
 4. **Nunca alterar `tools_allowed`** removendo tools que tipos existentes usam
-5. **Cada execução de refinar gera commit** — rastreabilidade
+5. **Cada execução de refinar gera commit** — rastreabilidade — e só depois do lint de PII passar

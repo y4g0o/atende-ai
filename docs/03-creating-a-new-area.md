@@ -75,8 +75,8 @@ Backlog de refinamentos tambem aparece aqui -- resolva quando quiser.
 
 - [ ] `schema: atende.v1`
 - [ ] `area.name`, `area.owner_team`
-- [ ] `chat.space_production` (ID real do seu canal)
-- [ ] `tools_allowed[]` (minimo: list_messages, send_message do Google Chat)
+- [ ] `channel.type`, `channel.tools.read/send`, `channel.source_production` (ID real do seu canal)
+- [ ] `tools_allowed[]` (inclui as tools de `channel.tools`)
 - [ ] `types[]` (minimo 1, com `keywords[]`, `operation.tool`, `response_template[lang]`)
 - [ ] `audit.destination` (projeto BigQuery real)
 

@@ -70,6 +70,8 @@ Se falhar, **revertir** o pull (`git reset --hard ${LOCAL}`) e avisar — não d
 **8.** Se mudou `engine/*.md`, reinstalar symlinks:
 ```bash
 bash ~/atende-ai/scripts/install.sh
+# exit 2 = comandos /atende* instalados a partir de outro repositório: NÃO use --force
+# sem o operador pedir — mostre os conflitos listados e pergunte
 ```
 
 ---

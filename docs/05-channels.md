@@ -22,7 +22,7 @@ O engine resolve `{{ requester_address }}` nos templates de resposta usando `add
 
 | `address_format` | Resultado em `{{ requester_address }}` | Uso |
 |---|---|---|
-| `mention` | `<users/USER_ID>` | Google Chat (menção) |
+| `mention` | `<users/USER_ID>` quando o engine envia; `@Nome` quando o operador cola (padrão `default_delivery: draft`) | Google Chat (menção) |
 | `email` | `fulano@empresa.com` | Email |
 | `name` | `Fulano Silva` | WhatsApp / canais sem menção |
 

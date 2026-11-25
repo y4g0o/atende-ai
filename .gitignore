@@ -27,3 +27,6 @@ areas/*.local.yaml
 
 # Validation reports
 tests/regression-results-*.md
+
+# Padroes reais de PII da org (um regex por linha) — nunca commitar
+.pii-patterns.local

@@ -67,7 +67,8 @@ Experimente sem nenhuma credencial (checagens puramente locais):
 ```bash
 bash scripts/validate.sh                       # valida todos os areas/*.yaml contra o schema
 bash scripts/validate.sh examples/minimal-area.yaml
-bash scripts/check-no-pii.sh                   # lint de tokens proibidos antes de compartilhar o kit
+bash scripts/check-no-pii.sh                   # lint de tokens proibidos (padrões reais em .pii-patterns.local, gitignored)
+python3 -m unittest discover -s tests          # suíte de testes (requer pyyaml + jsonschema)
 python3 lib/threshold_cluster.py               # demo do clustering Jaccard usado na análise de histórico
 ```
 
@@ -119,6 +120,7 @@ atende-ai/
 ├── schemas/            # JSON Schema (atende.v1.json)
 ├── lib/                # Python puro: pii_redactor, threshold_cluster, audit_logger
 ├── scripts/            # install.sh, validate.sh, check-no-pii.sh
+├── tests/              # unittest: libs, scripts e invariantes engine↔schema↔docs
 ├── docs/               # Arquitetura, referência do schema, governança, canais, glossário, lições aprendidas
 ├── examples/           # minimal-area.yaml (referência mínima) + presets em channels/ (Google Chat, Gmail, WhatsApp)
 └── globals.yaml        # Regras compartilhadas por todas as áreas (canal de teste, convenções, regras absolutas)
@@ -128,13 +130,13 @@ atende-ai/
 
 ## 🚧 Status e limitações
 
-- **Versão inicial** — um único commit inicial, versão pública e sanitizada de uma ferramenta usada em canais de suporte reais (veja as [lições aprendidas](docs/07-licoes.md)).
+- **Versão inicial** — versão pública e sanitizada de uma ferramenta usada em canais de suporte reais (veja as [lições aprendidas](docs/07-licoes.md)).
 - **O engine é um conjunto de arquivos de prompt/skill** (`engine/*.md`) executados por um AI CLI, não um serviço independente. `lib/` é Python puro, sem dependências externas.
 - **Traga seus próprios MCPs** — as operações passam pelo MCP da sua organização (`mcp__YOUR_ORG_MCP__*`); WhatsApp precisa do MCP do seu provedor. O destino de auditoria precisa ser uma URI `bigquery://` (regra do schema).
 - **Idiomas:** templates de resposta suportam `pt-BR` e `es` (enum do schema).
 - **RBAC em nível MVP** (`authorizations[]` no YAML) e **sem rollback automático** de operações executadas ([`docs/04-governance.md`](docs/04-governance.md)).
 - **Os padrões de PII são ajustados a formatos brasileiros** (CPF, CEP, telefones `+55`) e usam heurística para nomes — adapte aos seus dados.
-- **Ainda sem suíte de testes automatizada nem CI.**
+- **Suíte de testes incluída (`tests/`), ainda sem CI.**
 - **A maior parte da documentação, dos prompts do engine e dos comentários está em português**; este README e o `CONTRIBUTING.md` também existem em inglês.
 
 ## 🗺️ Roadmap
@@ -142,7 +144,8 @@ atende-ai/
 - [ ] RBAC num `permissions.yaml` separado, herdado de `globals` ([`docs/04-governance.md`](docs/04-governance.md))
 - [ ] Rollback automatizado, modelando uma "operação inversa" por tipo ([`docs/04-governance.md`](docs/04-governance.md))
 - [ ] Novos adapters de canal (Slack, Teams, Telegram) seguindo o checklist de [`docs/05-channels.md`](docs/05-channels.md)
-- [ ] Suíte de testes para `lib/` e CI rodando `validate.sh` + `check-no-pii.sh`
+- [x] Suíte de testes para `lib/`, scripts e invariantes do engine/schema (`tests/`)
+- [ ] CI rodando os testes + `validate.sh` + `check-no-pii.sh`
 - [ ] Versões em inglês de `docs/` e do `GETTING-STARTED.md`
 
 ## 🤝 Contribuindo

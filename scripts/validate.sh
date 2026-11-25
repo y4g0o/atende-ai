@@ -32,26 +32,28 @@ validate_file() {
   name="$(basename "${yaml_file}")"
 
   if [[ "${VALIDATOR}" == "ajv" ]]; then
-    if ajv validate -s "${SCHEMA}" -d "${yaml_file}" --strict=false 2>&1; then
+    if ajv validate --spec=draft2020 -s "${SCHEMA}" -d "${yaml_file}" --strict=false 2>&1; then
       echo "  [OK] ${name}"; return 0
     else
       echo "  [FAIL] ${name}"; return 1
     fi
   else
-    if python3 - <<PYEOF
+    # caminhos vao por argv (heredoc com aspas): aspas/espacos no nome nao quebram o Python
+    if python3 - "${SCHEMA}" "${yaml_file}" "${name}" <<'PYEOF'
 import sys, json, yaml
-from jsonschema import validate, ValidationError
-with open('${SCHEMA}') as s: schema = json.load(s)
-with open('${yaml_file}') as y: data = yaml.safe_load(y)
-try:
-    validate(instance=data, schema=schema)
-    print('  [OK] ${name}')
+from jsonschema import Draft202012Validator
+schema_path, yaml_path, name = sys.argv[1:4]
+with open(schema_path) as s: schema = json.load(s)
+with open(yaml_path) as y: data = yaml.safe_load(y)
+errors = sorted(Draft202012Validator(schema).iter_errors(data), key=lambda e: list(e.absolute_path))
+if not errors:
+    print('  [OK] ' + name)
     sys.exit(0)
-except ValidationError as e:
-    print('  [FAIL] ${name}')
+print('  [FAIL] ' + name)
+for e in errors[:5]:
     print('    Path: ' + '.'.join(str(p) for p in e.absolute_path))
     print('    Erro: ' + e.message)
-    sys.exit(1)
+sys.exit(1)
 PYEOF
     then
       return 0

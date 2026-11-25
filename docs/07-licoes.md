@@ -91,6 +91,124 @@ Se sim, pergunte ao operador se e reabertura ou se o thread foi aberto por engan
 
 ---
 
+## 6. Identificador que voce nao sabe ler e canal, nao automacao
+
+**Contexto:** investigar "quem alterou" um registro no audit log.
+
+**Armadilha:** o campo de autoria tem formatos diferentes por origem (e-mail para acao interna, UUID para usuario final, nome de canal/integracao para envios de terceiros). Diante de um valor desconhecido, concluir "foi um processo interno da plataforma" ou "nao foi uma pessoa".
+
+**Correto:** se o identificador nao resolve para e-mail ou UUID existente, a resposta e "nao identificado — veio por um canal de envio" e escalar para o dono da integracao. Ao investigar, **nao trunque** os campos de valor/extra (o remetente costuma estar depois do corte). Velocidade ou volume de eventos nao prova automacao.
+
+**Consequencia de ignorar:** a resposta acusa a propria organizacao de alterar dados do cliente e vira incidente falso.
+
+---
+
+## 7. IDs de sistemas diferentes colidem — confira o nome dentro do arquivo
+
+**Contexto:** baixar arquivo de uma pessoa (PDF, export) por um identificador numerico.
+
+**Armadilha:** sistemas legado e atual usam faixas numericas que se sobrepoem. O caminho monta com o ID "errado", o download funciona e entrega o arquivo de **outra pessoa**.
+
+**Correto:** valide o ID na fonte que indexa o armazenamento (o legado, se e ele que nomeia as pastas) e **abra o arquivo e leia o nome** antes de entregar. E o unico passo que pega o erro.
+
+---
+
+## 8. `success: true` nao prova que a operacao fez algo
+
+**Contexto:** qualquer tool de escrita.
+
+**Armadilha:** tools que respondem sucesso com input invalido (ex.: um codigo de acesso no lugar do UUID) e nao alteram nada. O operador comunica "feito" e o solicitante volta 24h depois.
+
+**Correto:** depois da propagacao, confira o efeito no dado (contagem antes x depois, flag do registro). Reporte a cobertura real ("23 de 25 voltaram; 2 tinham sido desativados em outro momento").
+
+---
+
+## 9. Post automatico e pista, nao fato
+
+**Contexto:** canais onde um bot ou outro agente posta roteamento/"investigacao previa" na thread.
+
+**Armadilha:** repetir os numeros do post automatico na resposta. Ninguem revisa esse post antes de ir ao ar; contagens erradas ("todos completos" com 18 de 50 vazios) sao comuns.
+
+**Correto:** use como pista de entidades e remeca todo numero. O pedido real e as aprovacoes estao nas respostas humanas da thread.
+
+---
+
+## 10. Prova negativa fraca — "a query deu zero" nao libera
+
+**Contexto:** blockers do tipo "se a query de risco voltar vazia, pode executar".
+
+**Armadilha:** a combinacao de filtros nunca ocorre na base (ex.: status ativo + pago com entidade desativada da zero em 100% dos casos, com ou sem problema). O blocker passa sempre.
+
+**Correto:** antes de confiar num zero, verifique se o filtro ja retornou linha alguma vez. Procure o sinal que discrimina (outro status, como cancelado+pago) e complemente com evidencia positiva — onde o dado ESTA.
+
+---
+
+## 11. Duplicata x legitima: conte o conteudo antes de perguntar
+
+**Contexto:** a busca devolve dois registros homonimos (dois grupos, duas contas, dois cadastros da mesma pessoa).
+
+**Armadilha:** perguntar ao operador "qual dos dois?" de cara, ou escolher o mais recente.
+
+**Correto:** conte o conteudo/uso de cada lado (itens, compras, membros). A legitima costuma ser a que tem dados; a vazia e a duplicata. Pergunte so se as duas tiverem conteudo. Em duplicata de pessoa, sobrevive o cadastro com historico (compras), nao o mais novo — e a causa costuma ser e-mail quase igual (`@gmail.com` x `@gmail.com.br`).
+
+---
+
+## 12. Espelho atrasado e limite de linhas
+
+**Contexto:** consultas em replica/data lake e tools SQL com teto de linhas.
+
+**Armadilha:** concluir "nao aconteceu" porque o espelho ainda nao recebeu o evento (ja ficou horas parado), ou tirar conclusao de uma lista cortada no limite da tool.
+
+**Correto:** cheque `MAX(updated_at)` da tabela antes de afirmar ausencia; agregue em vez de listar cru. E nao re-execute uma operacao que retornou sucesso so porque o espelho ainda nao reflete.
+
+---
+
+## 13. Texto de ajuda da tool fica defasado
+
+**Contexto:** tools com uma operacao "ajuda"/"help" que descreve os parametros.
+
+**Armadilha:** confiar no texto de ajuda — ele continua citando parametro renomeado e operacao com typo antigo, e o servidor passa a rejeitar.
+
+**Correto:** o schema da tool vale mais que o texto. Divergencia encontrada vira `# ARMADILHA:` no tipo do YAML.
+
+---
+
+## 14. Chamadas paralelas perdem em silencio por cota
+
+**Contexto:** lote via CLI de funcao serverless ou API com cota por minuto.
+
+**Armadilha:** disparar N chamadas em paralelo com stderr descartado. Parte bate na cota (429) e some sem aviso — num caso real, 96 de 121.
+
+**Correto:** prefira a tool que aceita array (uma chamada). Sem isso, sequencial com intervalo e stderr visivel; confira a contagem no fim.
+
+---
+
+## 15. Mencao some em silencio para quem nao e membro direto
+
+**Contexto:** Google Chat via API.
+
+**Armadilha:** `<users/ID>` e removida sem erro se a pessoa entrou no espaco via grupo. O operador acha que notificou.
+
+**Correto:** confira membership direta antes; quando importa, o operador cola a mensagem com `@Nome` manual. Nunca `<users/all>`.
+
+---
+
+## 16. Resposta curta e franca vence resposta burocratica
+
+**Contexto:** rascunho da resposta ao solicitante.
+
+**Armadilha:** apos acumular regras, o rascunho vira checklist: varios topicos, marcacao de terceiros para tarefas, cobranca de aprovacao de lideranca em todo pedido.
+
+**Correto:** responda so o que foi perguntado. Operacao possivel mas de pouco efeito → diga isso e pergunte "quer que alteremos mesmo assim?". Exigencias de alinhamento sao do operador decidir, nao do template.
+
+---
+
+## 17. Pedido de registro de acesso nunca se atende pelo canal
+
+**Contexto:** "qual IP acessou", "historico de login", "localizacao", pedido de advogado ou orgao publico.
+
+**Correto:** nao buscar nem entregar. Encaminhar ao juridico/compliance — esse dado so sai por processo formal. E nao afirme o que desativar ou excluir faz com os dados sem verificar no sistema (ou sem o `response_template` do tipo dizer): muitos sistemas so desativam, outros apagam de fato.
+
 ## Como adicionar novas licoes
 
 Ao encontrar um comportamento inesperado em producao:

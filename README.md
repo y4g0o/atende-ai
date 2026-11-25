@@ -67,7 +67,8 @@ Try it without any credentials (pure local checks):
 ```bash
 bash scripts/validate.sh                       # validates every areas/*.yaml against the schema
 bash scripts/validate.sh examples/minimal-area.yaml
-bash scripts/check-no-pii.sh                   # lint for forbidden tokens before sharing the kit
+bash scripts/check-no-pii.sh                   # lint for forbidden tokens (your real patterns go in .pii-patterns.local, gitignored)
+python3 -m unittest discover -s tests          # test suite (needs pyyaml + jsonschema)
 python3 lib/threshold_cluster.py               # demo of the Jaccard clustering used in history analysis
 ```
 
@@ -119,6 +120,7 @@ atende-ai/
 ├── schemas/            # JSON Schema (atende.v1.json)
 ├── lib/                # Pure Python: pii_redactor, threshold_cluster, audit_logger
 ├── scripts/            # install.sh, validate.sh, check-no-pii.sh
+├── tests/              # unittest: libs, scripts and engine↔schema↔docs invariants
 ├── docs/               # Architecture, schema reference, governance, channels, glossary, lessons learned
 ├── examples/           # minimal-area.yaml (bare minimum reference) + channels/ presets (Google Chat, Gmail, WhatsApp)
 └── globals.yaml        # Rules shared by every area (test channel, conventions, absolute rules)
@@ -128,13 +130,13 @@ atende-ai/
 
 ## 🚧 Status & limitations
 
-- **Early release** — a single initial commit, a sanitized public version of a tool used on real support channels (see [lessons learned](docs/07-licoes.md)).
+- **Early release** — a sanitized public version of a tool used on real support channels (see [lessons learned](docs/07-licoes.md)).
 - **The engine is a set of prompt/skill files** (`engine/*.md`) run by an AI CLI, not a standalone service. `lib/` is pure Python with no external dependencies.
 - **Bring your own MCPs** — operations go through your organization's MCP (`mcp__YOUR_ORG_MCP__*`); WhatsApp needs your provider's MCP. Audit destination must be a `bigquery://` URI (schema rule).
 - **Languages:** response templates support `pt-BR` and `es` (schema enum).
 - **RBAC is MVP-level** (`authorizations[]` in the YAML) and there is **no automatic rollback** of executed operations ([`docs/04-governance.md`](docs/04-governance.md)).
 - **PII patterns are tuned to Brazilian formats** (CPF, CEP, `+55` phones) and use heuristics for names — adapt them to your data.
-- **No automated test suite or CI yet.**
+- **Test suite included (`tests/`), no CI yet.**
 - **Most docs, engine prompts and code comments are in Portuguese**; this README and `CONTRIBUTING.md` are the English entry points.
 
 ## 🗺️ Roadmap
@@ -142,7 +144,8 @@ atende-ai/
 - [ ] RBAC in a separate `permissions.yaml`, inherited from `globals` ([`docs/04-governance.md`](docs/04-governance.md))
 - [ ] Automated rollback by modeling an "inverse operation" per type ([`docs/04-governance.md`](docs/04-governance.md))
 - [ ] New channel adapters (Slack, Teams, Telegram) following the checklist in [`docs/05-channels.md`](docs/05-channels.md)
-- [ ] Test suite for `lib/` and CI running `validate.sh` + `check-no-pii.sh`
+- [x] Test suite for `lib/`, scripts and engine/schema invariants (`tests/`)
+- [ ] CI running the tests + `validate.sh` + `check-no-pii.sh`
 - [ ] English versions of `docs/` and `GETTING-STARTED.md`
 
 ## 🤝 Contributing

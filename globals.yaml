@@ -14,7 +14,8 @@ channel_test:
 conventions:
   - { sinal: "👀", significado: "Estou analisando", acao: "não sobrepor" }
   - { sinal: "✅", significado: "Resolvido", acao: "thread fechada" }
-  - { sinal: "PSC", significado: "Pode ser confirmado", acao: "aguardar confirmação do solicitante" }
+  - { sinal: "PSC", significado: "Para seu conhecimento", acao: "quem recebeu PSC está ciente; se o dono do assunto já recebeu, não agir" }
+  - { sinal: "post automático / bot", significado: "Roteamento ou investigação sem revisão humana", acao: "pista, não fato — remedir antes de repetir" }
 
 # Padrão de mensagem (template base que áreas podem override)
 # {{ requester_address }} é resolvido pelo engine conforme channel.address_format:
@@ -43,6 +44,16 @@ absolute_rules:
   - require_audit_log: true
   - require_pii_redaction_for_llm: true
   - block_users_all_mention: true   # nunca usar <users/all> — regra específica do google_chat
+  - never_invent: true              # não saber é resposta válida; causa/autoria exigem fonte
+  - identity_check_before_delivery: true   # arquivo/autoria/causa conferidos contra a fonte
+  - never_deliver_access_logs: true # IP, login, localização de pessoa → jurídico/compliance
+
+# Estilo de mensagem (engine/atende.md Passo 6)
+message_style:
+  plain_text: true                  # sem markdown em canais de chat
+  no_internal_ids: true             # sem UUID, SKU, tabela, nome de banco na resposta
+  max_listed_entities: 5            # acima disso, contagem agrupada
+  default_delivery: draft           # draft = operador cola | send = engine envia após Pausa 3
 
 # E-mail do operador é capturado runtime — nunca persistido no YAML
 operator_email_runtime: true

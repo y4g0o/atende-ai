@@ -32,6 +32,7 @@ people:
 tools_allowed:
   # I/O do canal (inclua as tools de channel.tools)
   - mcp__claude_ai_Google_Chat__list_messages
+  - mcp__claude_ai_Google_Chat__search_messages
   - mcp__claude_ai_Google_Chat__send_message
   # Operacoes
   - mcp__claude_ai_Google_Cloud_BigQuery__execute_sql_readonly

@@ -8,6 +8,7 @@ Operador                       Engine                              MCPs / BQ
    │ /atende helpdesk-saas <URL>  │                                   │
    ├─────────────────────────────►│ load areas/helpdesk-saas.yaml     │
    │                              │ validate vs schema                │
+   │                              │ check_audit_available (0.5b) ─ sem audit → para
    │                              │ inject operator_email (runtime)   │
    │                              │ resolve requester_address_template│
    │                              │   (mention/email/name por canal)  │
@@ -42,9 +43,13 @@ Operador                       Engine                              MCPs / BQ
    │                              │   {{ requester_address }} por     │
    │                              │   channel.address_format          │
    │                              │                                   │
+   │                              │ checagem de identidade (arquivo,  │
+   │                              │   autoria, causa conferidos)      │
+   │                              │                                   │
    │ ⚠️ Pausa 3 (sempre)           │                                   │
-   │ ◄────── mensagem completa ───│                                   │
-   │ → "sim"                      │                                   │
+   │ ◄── mensagem + "cola ou envio?" ─│                               │
+   │ → "eu colo"  (fim, registra) │                                   │
+   │ → "envia"    (explícito)     │ anti-spoof: source_id ∈ canal ativo│
    │                              ├──────────────────────────────────►│ channel.tools.send
    │                              │   (google_chat=send_message,      │
    │                              │    email=create_draft,            │
@@ -107,7 +112,7 @@ Operador                    /atende-varredura                  MCPs / Libs
 1. **Pausa 2 e Pausa 3 sempre acontecem.** YAML não desliga.
 2. **Whitelist de tools validada no carregamento.** Tool fora rejeitada com erro.
 3. **E-mail do operador injetado em runtime.** YAML usa `{{ operator_email }}`.
-4. **Canal via `channel.tools.*`.** Engine nunca hardcoda provedor. Anti-spoof: valida `source == channel.source_production`.
+4. **Canal via `channel.tools.*`.** Engine nunca hardcoda provedor. Anti-spoof: o `source_id` do thread precisa pertencer ao canal ativo (produção, ou `source_test` com `--teste`).
 5. **Audit obrigatório.** Toda execução e varredura grava em BQ (ou jsonl fallback). Sem audit, falha cedo.
 6. **PII redaction obrigatória** em qualquer chamada LLM externa que processe mensagens do canal.
 7. **Varredura não resolve.** `/atende-varredura` entrega a fila; `/atende` resolve um chamado por vez.
@@ -115,7 +120,7 @@ Operador                    /atende-varredura                  MCPs / Libs
 ## Fallback de erros
 
 - **MCP 4xx**: revisar parâmetros, re-buscar UUID, tentar 1x mais.
-- **MCP 5xx ou timeout**: tentar 1x mais; se persistir → gerar `cmd.sh` fallback e Pausa 2 de novo.
+- **MCP 5xx ou timeout**: tentar 1x mais; se persistir → gerar `~/cmd-fallback.sh` e Pausa 2 de novo.
 - **MCP sucesso mas sistema não reflete**: NÃO re-executar — sistemas distribuídos têm delay de propagação.
 - **Tool fora da whitelist**: erro fatal no carregamento; engine não inicia.
 - **Schema inválido**: erro fatal; mostra mensagem clara com path do erro.

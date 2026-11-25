@@ -14,11 +14,17 @@ area:                                # metadados da area
   severity_default: medium           # low | medium | high | critical
   language_default: pt-BR            # pt-BR | es
 
-chat:
-  space_production: "spaces/REPLACE_PRODUCTION_SPACE_ID"
-  space_test: "spaces/REPLACE_TEST_SPACE_ID"  # herda de globals se omitido
+channel:                             # canal de I/O (detalhes em docs/05-channels.md)
+  type: google_chat                  # google_chat | email | whatsapp
+  tools:
+    read: mcp__claude_ai_Google_Chat__list_messages
+    search: mcp__claude_ai_Google_Chat__search_messages
+    send: mcp__claude_ai_Google_Chat__send_message
+  source_production: "spaces/REPLACE_PRODUCTION_SPACE_ID"
+  source_test: "spaces/REPLACE_TEST_SPACE_ID"  # herda de globals se omitido
+  address_format: mention            # mention | email | name
 
-people:                              # tabela de User IDs do canal Google Chat
+people:                              # identificadores das pessoas no canal
   - name: "Operador Principal"
     user_id: "users/100000000000000000001"
     role: operator                   # opcional: relay | operator | escalation
@@ -64,8 +70,8 @@ types:                               # tipos de chamado catalogados
     escalation_to: []
     response_template:
       pt-BR: |
-        Olá <users/{{ requester_id }}>!
-        Reset enviado para **{{ entity_name }}** ✅
+        Olá {{ requester_address }}!
+        Reset enviado para {{ entity_name }} ✅
         Qualquer dúvida, nos avise!
 
 escalation_matrix:                   # quem acionar por sintoma
@@ -89,7 +95,9 @@ refinement_backlog:                  # bootstrap hibrido -- duvidas pendentes
 | `schema` | string (`"atende.v1"`) | sim |
 | `area.name` | kebab-case | sim |
 | `area.owner_team` | string | sim |
-| `chat.space_production` | string (`"spaces/..."`) | sim |
+| `channel.type` | `google_chat` \| `email` \| `whatsapp` | sim |
+| `channel.tools.read` / `.send` | tool MCP | sim |
+| `channel.source_production` | string (formato do canal) | sim |
 | `tools_allowed` | array de strings | sim |
 | `types` | array (minimo 1) | sim |
 | `audit.destination` | string (`"bigquery://..."`) | sim |
@@ -97,7 +105,8 @@ refinement_backlog:                  # bootstrap hibrido -- duvidas pendentes
 ## Variaveis Jinja2 disponiveis em templates
 
 - `{{ operator_email }}` -- capturado runtime (nunca no YAML)
-- `{{ requester_id }}` -- User ID extraido pelo classifier
+- `{{ requester_address }}` -- como enderecar o solicitante (resolvido por `channel.address_format`); use este nos templates, nunca `<users/...>` fixo
+- `{{ requester_id }}` -- identificador bruto extraido pelo classifier
 - `{{ entity_name }}`, `{{ entity_uuid }}` -- da query de busca
 - `{{ workspace_id }}`, `{{ account_id }}` -- quando aplicavel
 - `{{ year }}` -- ano/periodo de referencia

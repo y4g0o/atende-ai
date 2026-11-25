@@ -5,7 +5,7 @@
 1. **Aprovacao humana e nao-negociavel.** Engine sempre pausa antes de executar e antes de enviar.
 2. **Whitelist de tools por area.** YAML declara `tools_allowed[]`. Engine recusa qualquer tool fora da lista.
 3. **Auditoria imutavel.** Toda execucao grava em BQ com hash do payload.
-4. **Espacos de teste isolados.** YAML declara `space_test`. Engine bloqueia `send_message` para outros espacos em modo teste.
+4. **Espacos de teste isolados.** YAML declara `channel.source_test`. Engine bloqueia envio para outros canais em modo teste.
 5. **E-mail do operador e runtime.** Operacao rastreada por quem executou, nao por configuracao estatica.
 6. **PII nunca vaza em LLM externo.** Pipeline obrigatorio de redaction antes de qualquer chamada que processe historico.
 
@@ -13,14 +13,15 @@
 
 | Guard | Onde |
 |---|---|
-| Pausa 2 (aprovacao execucao) | `engine/atende.md` Passo 6 |
-| Pausa 3 (aprovacao envio) | `engine/atende.md` Passo 10 |
+| Pausa 2 (aprovacao execucao) | `engine/atende.md` Pausa 2 |
+| Pausa 3 (aprovacao envio) | `engine/atende.md` Pausa 3 |
+| Checagem de identidade | `engine/atende.md` antes da Pausa 3 |
 | Whitelist tools | `engine/atende.md` Passo 0 (carregamento) |
 | PII redaction | `lib/pii_redactor.py` (chamado sempre antes de LLM) |
-| Audit log | `engine/atende.md` Passo 8 (nao condicional) |
-| Espaco teste | `engine/atende.md` Passo 10 (valida `threadId` vs `space_production`) |
+| Audit log | `engine/atende.md` Passo 5 (nao condicional) |
+| Canal de teste | `engine/atende.md` Pausa 3 (`--teste` → canal ativo = `source_test`; anti-spoof: `source_id` precisa pertencer ao canal ativo) |
 | E-mail runtime | `engine/atende.md` Passo 0 (`{{ operator_email }}` injetado) |
-| Risk level destructive | `engine/atende.md` Passo 6 — exige confirmacao literal |
+| Risk level destructive | `engine/atende.md` Pausa 2 — exige confirmacao literal |
 
 ## Operacoes destrutivas
 
@@ -41,7 +42,7 @@ authorizations:
     allowed_only: ["Compliance Officer", "Tech Lead"]
 ```
 
-Engine no Passo 4:
+Engine no Passo 3 (validacoes de bloqueio):
 - Le `requester` da classificacao (User ID + nome)
 - Cruza com `authorizations[]`
 - Se nao autorizado → bloqueia e instrui a escalar
@@ -80,7 +81,7 @@ Tabela `REPLACE_AUDIT_PROJECT.atende_audit.executions`:
 | `sent_at` | TIMESTAMP | Quando operador aprovou Pausa 3 |
 | `result_status` | STRING | success / partial / failed |
 | `result_message` | STRING | erro ou ID do retorno (nao dados de negocio) |
-| `thread_url` | STRING | Link do chamado |
+| `source_id` | STRING | Identificador do thread no canal |
 
 Query exemplo:
 ```sql
