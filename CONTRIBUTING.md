@@ -30,7 +30,7 @@ python3 -m unittest discover -s tests           # test suite (libs, scripts, eng
 python3 lib/threshold_cluster.py                # clustering demo still runs
 ```
 
-New behavior in `lib/`, `scripts/` or the engine contract should come with a test in `tests/`.
+New behavior in `lib/`, `scripts/` or the engine contract should come with a test in `tests/`. The `validate` workflow runs all of the above on every push and PR (Python 3.10 and 3.12).
 
 ### Style
 
@@ -54,8 +54,7 @@ New behavior in `lib/`, `scripts/` or the engine contract should come with a tes
 
 1. **Investigate the clustering demo.** `python3 lib/threshold_cluster.py` currently prints `De 12 amostras → 12 clusters` at `threshold=0.35`, so no similar tickets are grouped. Tune the demo threshold or the tokenization in `lib/threshold_cluster.py` and add a test that locks the expected grouping.
 2. **New example area.** Add a small, fictional area (e.g. `examples/backoffice-area.yaml` or an e-mail-based area using `examples/channels/email-gmail.yaml`) that passes `bash scripts/validate.sh <file>`.
-3. **CI workflow.** Add `.github/workflows/validate.yml` that installs `jsonschema` + `pyyaml` and runs `python3 -m unittest discover -s tests`, `scripts/validate.sh`, `scripts/validate.sh examples/minimal-area.yaml` and `scripts/check-no-pii.sh`.
-4. **English docs.** Translate `docs/06-glossary.md` (short) or `GETTING-STARTED.md` to English as `*.en.md` and link them from the README.
+3. **English docs.** Translate `docs/06-glossary.md` (short) or `GETTING-STARTED.md` to English as `*.en.md` and link them from the README.
 
 ---
 
@@ -85,7 +84,7 @@ python3 -m unittest discover -s tests           # suíte de testes (libs, script
 python3 lib/threshold_cluster.py                # a demo de clustering continua rodando
 ```
 
-Comportamento novo em `lib/`, `scripts/` ou no contrato do engine deve vir com teste em `tests/`.
+Comportamento novo em `lib/`, `scripts/` ou no contrato do engine deve vir com teste em `tests/`. O workflow `validate` roda tudo isso em todo push e PR (Python 3.10 e 3.12).
 
 ### Estilo
 
@@ -109,5 +108,4 @@ Comportamento novo em `lib/`, `scripts/` ou no contrato do engine deve vir com t
 
 1. **Investigar a demo de clustering.** `python3 lib/threshold_cluster.py` hoje imprime `De 12 amostras → 12 clusters` com `threshold=0.35`, ou seja, nenhum chamado parecido é agrupado. Ajuste o threshold da demo ou a tokenização em `lib/threshold_cluster.py` e adicione um teste que fixe o agrupamento esperado.
 2. **Nova área de exemplo.** Adicione uma área pequena e fictícia (ex.: `examples/backoffice-area.yaml` ou uma área por e-mail usando `examples/channels/email-gmail.yaml`) que passe em `bash scripts/validate.sh <arquivo>`.
-3. **Workflow de CI.** Adicione `.github/workflows/validate.yml` que instale `jsonschema` + `pyyaml` e rode `python3 -m unittest discover -s tests`, `scripts/validate.sh`, `scripts/validate.sh examples/minimal-area.yaml` e `scripts/check-no-pii.sh`.
-4. **Docs em inglês.** Traduza `docs/06-glossary.md` (curto) ou o `GETTING-STARTED.md` para inglês como `*.en.md` e linke no README.
+3. **Docs em inglês.** Traduza `docs/06-glossary.md` (curto) ou o `GETTING-STARTED.md` para inglês como `*.en.md` e linke no README.

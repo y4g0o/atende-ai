@@ -90,20 +90,38 @@ else
   (cd "${TARGET_ABS}" && find . -type f -not -path './.git/*' -print0) > "${FILES}"
 fi
 
+# PII_QUIET=1 (use em logs publicos, ex.: CI de repo aberto): nao imprime o padrao
+# nem o conteudo da linha — so o numero do padrao e arquivo:linha.
+quiet="${PII_QUIET:-0}"
 found=0
+idx=0
 for pattern in "${FORBIDDEN_PATTERNS[@]+"${FORBIDDEN_PATTERNS[@]}"}"; do
   [[ -z "${pattern}" || "${pattern}" =~ ^# ]] && continue
+  idx=$((idx + 1))
 
-  matches=$(cd "${TARGET_ABS}" && xargs -0 -r grep -naiE -e "${pattern}" -- < "${FILES}" 2>/dev/null \
+  matches=$(cd "${TARGET_ABS}" && xargs -0 -r grep -HnaiE -e "${pattern}" -- < "${FILES}" 2>/dev/null \
     | grep -av '^\(\./\)\?\.pii-patterns\.local:' || true)
   if [[ -n "${HISTORY}" ]]; then
     hist=$(grep -niE -e "${pattern}" -- "${HISTORY}" 2>/dev/null || true)
-    [[ -n "${hist}" ]] && matches="${matches}${matches:+$'\n'}[historico git] $(echo "${hist}" | head -3)"
+    if [[ -n "${hist}" ]]; then
+      if [[ "${quiet}" == "1" ]]; then
+        hist="$(echo "${hist}" | cut -d: -f1 | head -3 | sed 's/^/linha do log /' | paste -sd, -)"
+      else
+        hist="$(echo "${hist}" | head -3)"
+      fi
+      matches="${matches}${matches:+$'\n'}[historico git] ${hist}"
+    fi
   fi
 
   if [[ -n "${matches}" ]]; then
-    echo "[FALHOU] Padrao encontrado: ${pattern}"
-    echo "${matches}" | head -5
+    if [[ "${quiet}" == "1" ]]; then
+      echo "[FALHOU] Padrao #${idx} do arquivo de padroes encontrado em:"
+      # arquivo:linha apenas (o conteudo da linha contem o termo sensivel)
+      echo "${matches}" | sed -E 's/^(\[historico git\] .*)$/\1/; t; s/^([^:]+:[0-9]+):.*/\1/' | head -5
+    else
+      echo "[FALHOU] Padrao encontrado: ${pattern}"
+      echo "${matches}" | head -5
+    fi
     echo
     found=$((found + 1))
   fi

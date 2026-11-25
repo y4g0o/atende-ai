@@ -83,6 +83,35 @@ class CheckNoPiiTest(unittest.TestCase):
         (self.tmp / "CODEOWNERS").write_text("* @acme-secreta\n")
         self.assertEqual(self._pii("acme-secreta\n").returncode, 1)
 
+    def test_modo_quiet_nao_imprime_termo(self):
+        (self.tmp / "doc.md").write_text("linha um\ncontato acme-secreta aqui\n")
+        pf = self.tmp.parent / (self.tmp.name + ".q")
+        pf.write_text("acme-secreta\n")
+        self.addCleanup(pf.unlink)
+        r = run(["bash", str(SCRIPTS / "check-no-pii.sh"), str(self.tmp)],
+                env={"PII_PATTERNS_FILE": str(pf), "PII_QUIET": "1"})
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertNotIn("acme-secreta", r.stdout.lower())
+        self.assertIn("doc.md:2", r.stdout)
+        self.assertIn("Padrao #1", r.stdout)
+
+    def test_modo_quiet_historico_nao_imprime_termo(self):
+        (self.tmp / "doc.md").write_text("limpo\n")
+        git = ["git", "-C", str(self.tmp), "-c", "user.name=t", "-c", "user.email=t@example.com"]
+        run(["git", "init", "-q", str(self.tmp)])
+        (self.tmp / "velho.md").write_text("acme-secreta\n")
+        run([*git, "add", "-A"]); run([*git, "commit", "-qm", "c1"])
+        (self.tmp / "velho.md").unlink()
+        run([*git, "add", "-A"]); run([*git, "commit", "-qm", "c2"])
+        pf = self.tmp.parent / (self.tmp.name + ".q2")
+        pf.write_text("acme-secreta\n")
+        self.addCleanup(pf.unlink)
+        r = run(["bash", str(SCRIPTS / "check-no-pii.sh"), str(self.tmp)],
+                env={"PII_PATTERNS_FILE": str(pf), "PII_QUIET": "1"})
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("historico git", r.stdout)
+        self.assertNotIn("acme-secreta", r.stdout.lower())
+
     def test_padrao_com_espacos_nas_pontas(self):
         self.assertEqual(self._pii("   acme-secreta  \n").returncode, 1)
 

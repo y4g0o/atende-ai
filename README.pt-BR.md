@@ -2,6 +2,8 @@
 
 # atende-AI
 
+[![validate](https://github.com/y4g0o/atende-ai/actions/workflows/validate.yml/badge.svg)](https://github.com/y4g0o/atende-ai/actions/workflows/validate.yml)
+
 > **Transforme conhecimento operacional em skills de IA auditáveis.**
 >
 > Toda vez que você resolve um problema do mesmo jeito duas vezes, existe uma skill esperando para ser escrita.
@@ -136,7 +138,7 @@ atende-ai/
 - **Idiomas:** templates de resposta suportam `pt-BR` e `es` (enum do schema).
 - **RBAC em nível MVP** (`authorizations[]` no YAML) e **sem rollback automático** de operações executadas ([`docs/04-governance.md`](docs/04-governance.md)).
 - **Os padrões de PII são ajustados a formatos brasileiros** (CPF, CEP, telefones `+55`) e usam heurística para nomes — adapte aos seus dados.
-- **Suíte de testes incluída (`tests/`), ainda sem CI.**
+- **Testes + CI** (`tests/`, `.github/workflows/validate.yml`): testes, validação de schema e lint de PII rodam em todo push e PR.
 - **A maior parte da documentação, dos prompts do engine e dos comentários está em português**; este README e o `CONTRIBUTING.md` também existem em inglês.
 
 ## 🗺️ Roadmap
@@ -145,7 +147,7 @@ atende-ai/
 - [ ] Rollback automatizado, modelando uma "operação inversa" por tipo ([`docs/04-governance.md`](docs/04-governance.md))
 - [ ] Novos adapters de canal (Slack, Teams, Telegram) seguindo o checklist de [`docs/05-channels.md`](docs/05-channels.md)
 - [x] Suíte de testes para `lib/`, scripts e invariantes do engine/schema (`tests/`)
-- [ ] CI rodando os testes + `validate.sh` + `check-no-pii.sh`
+- [x] CI rodando os testes + `validate.sh` + `check-no-pii.sh`
 - [ ] Versões em inglês de `docs/` e do `GETTING-STARTED.md`
 
 ## 🤝 Contribuindo

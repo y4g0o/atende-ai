@@ -1,0 +1,50 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # check-no-pii.sh tambem varre o historico git
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Instalar dependencias
+        run: python -m pip install --upgrade pip jsonschema pyyaml
+
+      - name: Testes
+        run: python -m unittest discover -s tests -v
+
+      - name: Validar areas contra o schema
+        run: |
+          bash scripts/validate.sh
+          bash scripts/validate.sh examples/minimal-area.yaml
+
+      - name: Lint de PII
+        # Padroes reais nunca vao para o repo. Opcional: crie o secret PII_PATTERNS
+        # (um regex por linha) e o CI os usa. Sem o secret, o script avisa que nao
+        # ha padroes e segue (PRs de fork nao recebem secrets).
+        env:
+          PII_PATTERNS: ${{ secrets.PII_PATTERNS }}
+          PII_QUIET: "1"   # log publico: nunca imprimir padrao nem conteudo da linha
+        run: |
+          if [ -n "${PII_PATTERNS}" ]; then
+            printf '%s\n' "${PII_PATTERNS}" > "${RUNNER_TEMP}/pii-patterns"
+            export PII_PATTERNS_FILE="${RUNNER_TEMP}/pii-patterns"
+          fi
+          bash scripts/check-no-pii.sh

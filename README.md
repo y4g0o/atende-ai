@@ -2,6 +2,8 @@
 
 # atende-AI
 
+[![validate](https://github.com/y4g0o/atende-ai/actions/workflows/validate.yml/badge.svg)](https://github.com/y4g0o/atende-ai/actions/workflows/validate.yml)
+
 > **Turn operational knowledge into auditable AI skills.**
 >
 > Every time you solve a problem the same way twice, that's a skill waiting to be written.
@@ -136,7 +138,7 @@ atende-ai/
 - **Languages:** response templates support `pt-BR` and `es` (schema enum).
 - **RBAC is MVP-level** (`authorizations[]` in the YAML) and there is **no automatic rollback** of executed operations ([`docs/04-governance.md`](docs/04-governance.md)).
 - **PII patterns are tuned to Brazilian formats** (CPF, CEP, `+55` phones) and use heuristics for names — adapt them to your data.
-- **Test suite included (`tests/`), no CI yet.**
+- **Test suite + CI** (`tests/`, `.github/workflows/validate.yml`): tests, schema validation and the PII lint run on every push and PR.
 - **Most docs, engine prompts and code comments are in Portuguese**; this README and `CONTRIBUTING.md` are the English entry points.
 
 ## 🗺️ Roadmap
@@ -145,7 +147,7 @@ atende-ai/
 - [ ] Automated rollback by modeling an "inverse operation" per type ([`docs/04-governance.md`](docs/04-governance.md))
 - [ ] New channel adapters (Slack, Teams, Telegram) following the checklist in [`docs/05-channels.md`](docs/05-channels.md)
 - [x] Test suite for `lib/`, scripts and engine/schema invariants (`tests/`)
-- [ ] CI running the tests + `validate.sh` + `check-no-pii.sh`
+- [x] CI running the tests + `validate.sh` + `check-no-pii.sh`
 - [ ] English versions of `docs/` and `GETTING-STARTED.md`
 
 ## 🤝 Contributing
